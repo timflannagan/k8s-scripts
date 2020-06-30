@@ -2,6 +2,11 @@
 
 set -eou pipefail
 
+# TODO:
+# - This assumes the user is cluster-admin
+# - This assumes the NFS mount location in the manifests/nfs/pod.yaml is group writable
+# - Support deleting and re-creating the PV if that resource already exists
+
 NAMESPACE="${1:-$METERING_NAMESPACE}"
 
 if ! kubectl get storageclass sc-tflannag-nfs > /dev/null 2>&1; then
@@ -39,4 +44,3 @@ else
     echo "Creating the NFS PersistentVolume with the ${CLUSTER_IP} address"
     envsubst < manifests/nfs/pv.yaml | kubectl --namespace ${NAMESPACE} create -f -
 fi
-
