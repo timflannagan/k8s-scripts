@@ -1,33 +1,35 @@
 #! /bin/bash
 
-OUTPUT_FILE=${METERING_CR_FILE}
-OUTPUT_SECRET_NAME=${OUTPUT_SECRET_NAME:=tflannag-mysql-secret}
-CREATE_OUTPUT_FILE=${CREATE_OUTPUT_FILE:=false}
+NAMESPACE=${1:?}
+SECRET_NAME=${2:-"${NAMESPACE}-mysql-secret"}
 
-echo "Creating the namespace"
-oc create ns $METERING_NAMESPACE
+CREATE_OUTPUT_FILE=${CREATE_OUTPUT_FILE:=false}
+OUTPUT_FILE=${METERING_CR_FILE}
+
+if ! oc get ns ${NAMESPACE} > /dev/null 2>&1; then
+  echo "Creating the namespace"
+  oc create ns ${NAMESPACE}
+fi
 
 echo "Creating the mysql instance"
-oc -n $METERING_NAMESPACE new-app \
-	--image-stream mysql:5.7 \
+oc -n ${NAMESPACE} new-app \
+  --image-stream mysql:5.7 \
 	MYSQL_USER=testuser \
 	MYSQL_PASSWORD=testpass \
 	MYSQL_DATABASE=metastore \
-	-l db=mysql 2>/dev/null
+	-l db=mysql > /dev/null 2>&1
 
 echo "Creating the secret name containing the username and password"
-oc -n $METERING_NAMESPACE create secret generic $OUTPUT_SECRET_NAME \
-    --from-literal=username=testuser --from-literal=password=testpass 2>/dev/null
+oc -n ${NAMESPACE} create secret generic ${SECRET_NAME} \
+    --from-literal=username=testuser \
+    --from-literal=password=testpass 2>/dev/null
 
-res=$(kubectl -n $METERING_NAMESPACE get svc -l db=mysql --no-headers 2>/dev/null | wc -l)
-while [[ $? -ne 0 || res -le 0 ]]; do
-	echo "No services matching the -l db=mysql label selector yet, retrying..."
-	sleep 1
-	res=$(kubectl -n $METERING_NAMESPACE get svc -l db=mysql --no-headers 2>/dev/null | wc -l)
+export CLUSTER_IP=$(kubectl --namespace ${NAMESPACE} get svc/mysql -o jsonpath='{.spec.clusterIP}')
+while [[ $? != 0 ]]; do
+    echo "Waiting for the 'mysql' Service to have a populated spec.ClusterIP"
+    export CLUSTER_IP=$(kubectl --namespace ${NAMESPACE} get svc/mysql --jsonpath='{.spec.clusterIP}')
 done
-
-echo "Grabbing the ClusterIP for the -l db=mysql service"
-SERVICE_IP=$(kubectl -n $METERING_NAMESPACE get svc -l db=mysql -o json | faq -f json '.items[0].spec.clusterIP' | tr -d '"')
+echo "Grabbed the MySQL Service ClusterIP: ${CLUSTER_IP}"
 
 # check if the $METERING_CR_FILE is unset, generate boilerplate CR
 if [[ ! -f $METERING_CR_FILE || $CREATE_OUTPUT_FILE == "true" ]]; then
@@ -61,5 +63,5 @@ spec:
 EOF
 fi
 
-echo "Updating $OUTPUT_FILE to point to the new MySQL Service ClusterIP URL"
-faq -f yaml -o json '.' ${OUTPUT_FILE} | jq --arg ip "jdbc:mysql://$SERVICE_IP:3306/metastore" --arg name "$OUTPUT_SECRET_NAME" '.spec.hive.spec.config.db.url=$ip|.spec.hive.spec.config.db.secretName=$name' | faq -f json -o yaml > /tmp/tmp.yaml && mv /tmp/tmp.yaml ${OUTPUT_FILE}
+echo "Updating the ${OUTPUT_FILE} to point to the new MySQL Service ClusterIP URL"
+faq -f yaml -o json '.' ${OUTPUT_FILE} | jq --arg ip "jdbc:mysql://${CLUSTER_IP}:3306/metastore" --arg name "${SECRET_NAME}" '.spec.hive.spec.config.db.url=$ip|.spec.hive.spec.config.db.secretName=$name' | faq -f json -o yaml > /tmp/tmp.yaml && mv /tmp/tmp.yaml ${OUTPUT_FILE}
