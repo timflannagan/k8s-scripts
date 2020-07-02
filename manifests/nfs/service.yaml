@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tflannag-nfs-service
+  name: svc-$NAMESPACE-nfs
   labels:
     role: nfs-server
 spec:
