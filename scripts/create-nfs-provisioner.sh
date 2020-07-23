@@ -34,7 +34,7 @@ if ! kubectl --namespace ${NAMESPACE} get pod pod-${NAMESPACE}-nfs > /dev/null 2
     envsubst < manifests/nfs/pod.yaml | kubectl --namespace ${NAMESPACE} create -f -
 fi
 
-kubectl wait --for=condition=Ready pod/pod-${NAMESPACE}-nfs --timeout=120s
+kubectl --namespace ${NAMESPACE} wait --for=condition=Ready pod/pod-${NAMESPACE}-nfs --timeout=120s
 
 if kubectl --namespace ${NAMESPACE} get pv pv-${NAMESPACE}-nfs > /dev/null 2>&1; then
     # TODO: support deleting this resource
