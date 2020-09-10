@@ -25,7 +25,6 @@ oc -n ${NAMESPACE} create secret generic ${SECRET_NAME} \
     --from-literal=username=testuser \
     --from-literal=password=testpass 2>/dev/null
 
-
 # TODO: not entirely sure why this was needed. Should be able to use the service DNS path instead
 # of manually referencing the spec.ClusterIP of the service that gets created from `oc new-app`.
 service=$(kubectl --namespace ${NAMESPACE} get svc -l db=mysql --no-headers | awk '{ print $1 }')
