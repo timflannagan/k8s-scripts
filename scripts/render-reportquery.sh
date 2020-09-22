@@ -5,10 +5,10 @@
 # - Should probably handle inputs better
 # - Need a way to injecting the `inputs` for queries that need to reference non-defaults
 
-set -ue
+set -eou pipefail
 
 REPORTQUERY_NAME=${1:?}
-REPORTQUERY_NAMESPACE=${2:-$REPORTQUERY_NAMESPACE}
+REPORTQUERY_NAMESPACE=${2:-openshift-metering}
 
 start=$(oc -n $REPORTQUERY_NAMESPACE get reportdatasources --no-headers=true | grep -Ev '*-raw|^report' | awk 'NR==1 { print $2 }')
 end=$(oc -n $REPORTQUERY_NAMESPACE get reportdatasources --no-headers=true | grep -Ev '*-raw|^report' | awk 'NR==1 { print $3 }')
