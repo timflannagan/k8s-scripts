@@ -18,8 +18,10 @@ pushd "$tmp"
 for version in "4.4" "4.5" "4.6" "4.7"; do
     git checkout -b release-${version} origin/release-${version}
     opm alpha bundle generate --channels "$version" --default "${version}" --directory manifests/deploy/openshift/olm/bundle/${version}/ --output-dir bundle --package metering-ocp
+    find bundle/ -type f ! -name '*.yaml' -delete
     podman build -f bundle.Dockerfile -t quay.io/${user}/bundle:v${version}
     podman push quay.io/${user}/bundle:v${version}
+    opm alpha bundle validate --tag quay.io/${user}/bundle:v${version} --image-builder=podman
     git clean -fd
     git checkout master
     git branch -D release-$version
